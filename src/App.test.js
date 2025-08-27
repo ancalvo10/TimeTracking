@@ -14,8 +14,8 @@ jest.mock('./supabaseClient', () => ({
   },
 }));
 
-test('renders loading message initially', () => {
+test('renders login page when no user is logged in', () => {
   render(<App />);
-  const loadingMessage = screen.getByText(/Preparando el café... digo, la aplicación./i);
-  expect(loadingMessage).toBeInTheDocument();
+  const loginHeading = screen.getByRole('heading', { name: /iniciar sesión/i });
+  expect(loginHeading).toBeInTheDocument();
 });
