@@ -64,7 +64,7 @@ const Navbar = ({ user, onLogout }) => {
             } else if (payload.old.assigned_to !== payload.new.assigned_to) {
               await supabase.from('notifications').insert({
                 user_id: user.id,
-                message: `¡Se te ha reasignado la tarea "${payload.new.title}"!`,
+                message: `¡Se te ha asignado la tarea "${payload.new.title}"!`,
                 type: 'info',
               });
             }
@@ -174,6 +174,14 @@ const Navbar = ({ user, onLogout }) => {
               <Link to="/tasks" className="text-gray-600 hover:text-blue-600 transition-colors duration-200 flex items-center gap-1">
                 <ListTodo className="w-5 h-5" />
                 Tareas
+              </Link>
+            </>
+          )}
+          {user && user.role === 'leader' && (
+            <>
+              <Link to="/projects" className="text-gray-600 hover:text-blue-600 transition-colors duration-200 flex items-center gap-1">
+                <Briefcase className="w-5 h-5" />
+                Mis Proyectos
               </Link>
             </>
           )}
