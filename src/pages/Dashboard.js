@@ -21,8 +21,17 @@ const Dashboard = ({ user }) => {
           assigned_to(username, id)
         `);
 
-      if (user.role === 'normal') {
+      if (user.role === 'digitador') { // Changed from 'normal' to 'digitador'
         query = query.eq('assigned_to', user.id);
+      } else if (user.role === 'leader') {
+        // Leaders can only see tasks from projects they lead
+        const { data: leaderProjects, error: projectError } = await supabase
+          .from('projects')
+          .select('id')
+          .eq('leader_id', user.id);
+        if (projectError) throw projectError;
+        const projectIds = leaderProjects.map(p => p.id);
+        query = query.in('project_id', projectIds);
       }
 
       const { data, error } = await query.order('created_at', { ascending: false });
@@ -304,7 +313,7 @@ const Dashboard = ({ user }) => {
                 </div>
               </div>
 
-              {user.role === 'normal' && (task.status === 'pending' || task.status === 'in_progress' || task.status === 'paused' || task.status === 'correction') && (
+              {user.role === 'digitador' && (task.status === 'pending' || task.status === 'in_progress' || task.status === 'paused' || task.status === 'correction') && (
                 <>
                   {activeTimer && activeTimer.taskId === task.id ? (
                     <motion.button

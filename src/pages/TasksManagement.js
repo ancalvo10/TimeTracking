@@ -5,7 +5,7 @@ import { ListPlus, Edit, Trash2, Save, X, ListTodo, User, Folder } from 'lucide-
 
 const TasksManagement = ({ user }) => {
   const [tasks, setTasks] = useState([]);
-  const [usersList, setUsersList] = useState([]);
+  const [digitadores, setDigitadores] = useState([]); // Changed from usersList to digitadores
   const [projectsList, setProjectsList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -34,12 +34,13 @@ const TasksManagement = ({ user }) => {
       if (tasksError) throw tasksError;
       setTasks(tasksData);
 
-      const { data: usersData, error: usersError } = await supabase
+      const { data: digitadoresData, error: digitadoresError } = await supabase
         .from('users')
-        .select('id, username, role'); // Fetch role to filter normal users
+        .select('id, username')
+        .eq('role', 'digitador'); // Fetch only users with 'digitador' role
 
-      if (usersError) throw usersError;
-      setUsersList(usersData);
+      if (digitadoresError) throw digitadoresError;
+      setDigitadores(digitadoresData);
 
       const { data: projectsData, error: projectsError } = await supabase
         .from('projects')
@@ -117,7 +118,7 @@ const TasksManagement = ({ user }) => {
         prev.map((task) => (task.id === editingTask.id ? {
           ...editingTask,
           projects: projectsList.find(p => p.id === editingTask.project_id),
-          assigned_to: usersList.find(u => u.id === editingTask.assigned_to),
+          assigned_to: digitadores.find(u => u.id === editingTask.assigned_to), // Use digitadores
           created_by: task.created_by // Keep original created_by
         } : task))
       );
@@ -270,8 +271,8 @@ const TasksManagement = ({ user }) => {
                             onChange={(e) => setEditingTask({ ...editingTask, assigned_to: e.target.value })}
                             className="border border-gray-300 rounded-md px-2 py-1 w-full"
                           >
-                            {usersList.filter(u => u.role !== 'admin').map(userOption => (
-                              <option key={userOption.id} value={userOption.id}>{userOption.username}</option>
+                            {digitadores.map(digitador => ( // Use digitadores
+                              <option key={digitador.id} value={digitador.id}>{digitador.username}</option>
                             ))}
                           </select>
                         ) : (
@@ -418,8 +419,8 @@ const TasksManagement = ({ user }) => {
                     required
                   >
                     <option value="">Selecciona un usuario</option>
-                    {usersList.filter(u => u.role === 'normal').map(userOption => ( // Solo usuarios normales
-                      <option key={userOption.id} value={userOption.id}>{userOption.username}</option>
+                    {digitadores.map(digitador => ( // Use digitadores
+                      <option key={digitador.id} value={digitador.id}>{digitador.username}</option>
                     ))}
                   </select>
                 </div>
