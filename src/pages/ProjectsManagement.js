@@ -34,8 +34,8 @@ const ProjectsManagement = ({ user }) => {
 
       const { data: leadersData, error: leadersError } = await supabase
         .from('users')
-        .select('id, username')
-        .eq('role', 'leader'); // Fetch only users with 'leader' role
+        .select('id, username, role_id(name)') // Select role_id and its name
+        .eq('role_id.name', 'leader'); // Filter by role name
 
       if (leadersError) throw leadersError;
       setLeaders(leadersData);

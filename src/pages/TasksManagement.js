@@ -36,8 +36,8 @@ const TasksManagement = ({ user }) => {
 
       const { data: digitadoresData, error: digitadoresError } = await supabase
         .from('users')
-        .select('id, username')
-        .eq('role', 'digitador'); // Fetch only users with 'digitador' role
+        .select('id, username, role_id(name)') // Select role_id and its name
+        .eq('role_id.name', 'digitador'); // Filter by role name
 
       if (digitadoresError) throw digitadoresError;
       setDigitadores(digitadoresData);
@@ -114,11 +114,13 @@ const TasksManagement = ({ user }) => {
         .eq('id', editingTask.id);
 
       if (error) throw error;
+      // Update the task in state with the new assigned user's username
+      const updatedAssignedTo = digitadores.find(d => d.id === editingTask.assigned_to);
       setTasks((prev) =>
         prev.map((task) => (task.id === editingTask.id ? {
           ...editingTask,
           projects: projectsList.find(p => p.id === editingTask.project_id),
-          assigned_to: digitadores.find(u => u.id === editingTask.assigned_to), // Use digitadores
+          assigned_to: updatedAssignedTo ? { username: updatedAssignedTo.username } : null,
           created_by: task.created_by // Keep original created_by
         } : task))
       );
