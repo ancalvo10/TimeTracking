@@ -16,7 +16,7 @@ const Auth = ({ onLogin }) => {
     try {
       const { data, error } = await supabase
         .from('users')
-        .select('*')
+        .select(`*, role_id(name)`) // Fetch role name
         .eq('operator_number', operatorNumber)
         .single();
 
@@ -30,7 +30,7 @@ const Auth = ({ onLogin }) => {
         throw new Error('Número de operador o contraseña incorrectos.');
       }
 
-      onLogin(data);
+      onLogin({ ...data, role: data.role_id.name }); // Pass role name
     } catch (err) {
       setError(err.message);
     } finally {

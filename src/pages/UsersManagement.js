@@ -5,27 +5,44 @@ import { UserPlus, Edit, Trash2, Save, X, User as UserIcon } from 'lucide-react'
 
 const UsersManagement = () => {
   const [users, setUsers] = useState([]);
+  const [roles, setRoles] = useState([]); // New state for roles
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showAddUserModal, setShowAddUserModal] = useState(false);
-  const [newUser, setNewUser] = useState({ username: '', operator_number: '', password: '', role: 'normal' });
+  const [newUser, setNewUser] = useState({ username: '', operator_number: '', password: '', role_id: '' }); // Use role_id
   const [editingUser, setEditingUser] = useState(null); // User object being edited
 
   useEffect(() => {
-    fetchUsers();
+    fetchUsersAndRoles();
   }, []);
 
-  const fetchUsers = async () => {
+  const fetchUsersAndRoles = async () => {
     setLoading(true);
     setError('');
     try {
-      const { data, error } = await supabase
+      const { data: usersData, error: usersError } = await supabase
         .from('users')
-        .select('*')
+        .select(`
+          id, username, operator_number,
+          role_id(id, name)
+        `) // Select role_id and its name
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setUsers(data);
+      if (usersError) throw usersError;
+      setUsers(usersData);
+
+      const { data: rolesData, error: rolesError } = await supabase
+        .from('roles')
+        .select('*'); // Fetch all roles
+
+      if (rolesError) throw rolesError;
+      setRoles(rolesData);
+      // Set default new user role to 'digitador' if roles are loaded
+      const digitadorRole = rolesData.find(r => r.name === 'digitador');
+      if (digitadorRole) {
+        setNewUser(prev => ({ ...prev, role_id: digitadorRole.id }));
+      }
+
     } catch (err) {
       setError(err.message);
     } finally {
@@ -37,22 +54,24 @@ const UsersManagement = () => {
     e.preventDefault();
     setError('');
     try {
-      // En una aplicación real, la contraseña se hashearía en el backend o antes de insertar.
-      // Aquí, 'password' es el campo en la DB para este ejemplo.
       const { data, error } = await supabase
         .from('users')
         .insert({
           username: newUser.username,
           operator_number: newUser.operator_number,
-          password: newUser.password, // Usando 'password' directamente para este ejemplo
-          role: newUser.role,
+          password: newUser.password,
+          role_id: newUser.role_id, // Use role_id
         })
-        .select()
+        .select(`
+          id, username, operator_number,
+          role_id(id, name)
+        `)
         .single();
 
       if (error) throw error;
       setUsers((prev) => [data, ...prev]);
-      setNewUser({ username: '', operator_number: '', password: '', role: 'normal' });
+      const digitadorRole = roles.find(r => r.name === 'digitador');
+      setNewUser({ username: '', operator_number: '', password: '', role_id: digitadorRole ? digitadorRole.id : '' });
       setShowAddUserModal(false);
     } catch (err) {
       setError(err.message);
@@ -70,14 +89,18 @@ const UsersManagement = () => {
         .update({
           username: editingUser.username,
           operator_number: editingUser.operator_number,
-          role: editingUser.role,
-          // No actualizar la contraseña aquí directamente, se haría en un flujo separado
+          role_id: editingUser.role_id, // Use role_id
         })
         .eq('id', editingUser.id);
 
       if (error) throw error;
+      // Update the user in state with the new role's name
+      const updatedRole = roles.find(r => r.id === editingUser.role_id);
       setUsers((prev) =>
-        prev.map((user) => (user.id === editingUser.id ? editingUser : user))
+        prev.map((user) => (user.id === editingUser.id ? {
+          ...editingUser,
+          role_id: updatedRole ? { id: updatedRole.id, name: updatedRole.name } : null
+        } : user))
       );
       setEditingUser(null);
     } catch (err) {
@@ -202,16 +225,17 @@ const UsersManagement = () => {
                       <td className="px-6 py-4 whitespace-nowrap">
                         {editingUser?.id === user.id ? (
                           <select
-                            value={editingUser.role}
-                            onChange={(e) => setEditingUser({ ...editingUser, role: e.target.value })}
+                            value={editingUser.role_id}
+                            onChange={(e) => setEditingUser({ ...editingUser, role_id: e.target.value })}
                             className="border border-gray-300 rounded-md px-2 py-1 w-full"
                           >
-                            <option value="normal">Normal</option>
-                            <option value="admin">Admin</option>
+                            {roles.map(role => (
+                              <option key={role.id} value={role.id}>{role.name}</option>
+                            ))}
                           </select>
                         ) : (
-                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${user.role === 'admin' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'}`}>
-                            {user.role}
+                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${user.role_id?.name === 'admin' ? 'bg-blue-100 text-blue-800' : user.role_id?.name === 'leader' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'}`}>
+                            {user.role_id?.name}
                           </span>
                         )}
                       </td>
@@ -238,7 +262,7 @@ const UsersManagement = () => {
                         ) : (
                           <div className="flex justify-end gap-2">
                             <motion.button
-                              onClick={() => setEditingUser({ ...user })}
+                              onClick={() => setEditingUser({ ...user, role_id: user.role_id?.id || '' })}
                               className="text-indigo-600 hover:text-indigo-900 p-2 rounded-full hover:bg-indigo-50"
                               whileHover={{ scale: 1.1 }}
                               whileTap={{ scale: 0.9 }}
@@ -329,12 +353,13 @@ const UsersManagement = () => {
                   </label>
                   <select
                     id="newRole"
-                    value={newUser.role}
-                    onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
+                    value={newUser.role_id}
+                    onChange={(e) => setNewUser({ ...newUser, role_id: e.target.value })}
                     className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                   >
-                    <option value="normal">Normal</option>
-                    <option value="admin">Admin</option>
+                    {roles.map(role => (
+                      <option key={role.id} value={role.id}>{role.name}</option>
+                    ))}
                   </select>
                 </div>
                 {error && <p className="text-red-600 text-sm text-center">{error}</p>}
