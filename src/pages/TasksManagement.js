@@ -21,7 +21,7 @@ const TasksManagement = ({ user }) => {
     setLoading(true);
     setError('');
     try {
-      const { data: tasksData, error: tasksError } = await supabase
+      let tasksQuery = supabase
         .from('tasks')
         .select(`
           id, title, description, status, created_at,
@@ -31,6 +31,29 @@ const TasksManagement = ({ user }) => {
         `)
         .order('created_at', { ascending: false });
 
+      let projectsQuery = supabase
+        .from('projects')
+        .select('id, name');
+
+      // Filter tasks and projects based on user role
+      if (user.role === 'leader') {
+        const { data: leaderProjects, error: projectError } = await supabase
+          .from('projects')
+          .select('id')
+          .eq('leader_id', user.id);
+        if (projectError) throw projectError;
+        const projectIds = leaderProjects.map(p => p.id);
+
+        tasksQuery = tasksQuery.in('project_id', projectIds);
+        projectsQuery = projectsQuery.in('id', projectIds);
+      } else if (user.role === 'digitador') {
+        // Digitadores should not access this page, redirect or show error
+        setError("Acceso denegado. Los digitadores no pueden gestionar tareas desde aquí.");
+        setLoading(false);
+        return;
+      }
+
+      const { data: tasksData, error: tasksError } = await tasksQuery;
       if (tasksError) throw tasksError;
       setTasks(tasksData);
 
@@ -42,9 +65,7 @@ const TasksManagement = ({ user }) => {
       if (digitadoresError) throw digitadoresError;
       setDigitadores(digitadoresData);
 
-      const { data: projectsData, error: projectsError } = await supabase
-        .from('projects')
-        .select('id, name');
+      const { data: projectsData, error: projectsError } = await projectsQuery;
 
       if (projectsError) throw projectsError;
       setProjectsList(projectsData);
@@ -167,6 +188,14 @@ const TasksManagement = ({ user }) => {
     );
   }
 
+  if (error) {
+    return (
+      <div className="flex justify-center items-center min-h-[calc(100vh-80px)]">
+        <p className="text-red-600 text-lg">Error: {error}</p>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto px-4 py-8">
       <motion.h1
@@ -178,15 +207,17 @@ const TasksManagement = ({ user }) => {
         Gestión de Tareas
       </motion.h1>
 
-      <motion.button
-        onClick={() => setShowAddTaskModal(true)}
-        className="bg-blue-600 text-white px-6 py-3 rounded-xl shadow-lg hover:bg-blue-700 transition-colors duration-200 flex items-center gap-2 mb-8 mx-auto"
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
-      >
-        <ListPlus className="w-5 h-5" />
-        Crear Nueva Tarea
-      </motion.button>
+      {(user.role === 'admin' || user.role === 'leader') && ( // Only admin and leader can create tasks
+        <motion.button
+          onClick={() => setShowAddTaskModal(true)}
+          className="bg-blue-600 text-white px-6 py-3 rounded-xl shadow-lg hover:bg-blue-700 transition-colors duration-200 flex items-center gap-2 mb-8 mx-auto"
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+        >
+          <ListPlus className="w-5 h-5" />
+          Crear Nueva Tarea
+        </motion.button>
+      )}
 
       {error && (
         <motion.p
@@ -218,9 +249,11 @@ const TasksManagement = ({ user }) => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Estado
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Acciones
-                  </th>
+                  {(user.role === 'admin' || user.role === 'leader') && (
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Acciones
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -301,47 +334,49 @@ const TasksManagement = ({ user }) => {
                           </span>
                         )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        {editingTask?.id === task.id ? (
-                          <div className="flex justify-end gap-2">
-                            <motion.button
-                              onClick={handleUpdateTask}
-                              className="text-green-600 hover:text-green-900 p-2 rounded-full hover:bg-green-50"
-                              whileHover={{ scale: 1.1 }}
-                              whileTap={{ scale: 0.9 }}
-                            >
-                              <Save className="w-5 h-5" />
-                            </motion.button>
-                            <motion.button
-                              onClick={() => setEditingTask(null)}
-                              className="text-gray-600 hover:text-gray-900 p-2 rounded-full hover:bg-gray-50"
-                              whileHover={{ scale: 1.1 }}
-                              whileTap={{ scale: 0.9 }}
-                            >
-                              <X className="w-5 h-5" />
-                            </motion.button>
-                          </div>
-                        ) : (
-                          <div className="flex justify-end gap-2">
-                            <motion.button
-                              onClick={() => setEditingTask({ ...task, project_id: task.projects?.id, assigned_to: task.assigned_to?.id })}
-                              className="text-indigo-600 hover:text-indigo-900 p-2 rounded-full hover:bg-indigo-50"
-                              whileHover={{ scale: 1.1 }}
-                              whileTap={{ scale: 0.9 }}
-                            >
-                              <Edit className="w-5 h-5" />
-                            </motion.button>
-                            <motion.button
-                              onClick={() => handleDeleteTask(task.id)}
-                              className="text-red-600 hover:text-red-900 p-2 rounded-full hover:bg-red-50"
-                              whileHover={{ scale: 1.1 }}
-                              whileTap={{ scale: 0.9 }}
-                            >
-                              <Trash2 className="w-5 h-5" />
-                            </motion.button>
-                          </div>
-                        )}
-                      </td>
+                      {(user.role === 'admin' || user.role === 'leader') && (
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          {editingTask?.id === task.id ? (
+                            <div className="flex justify-end gap-2">
+                              <motion.button
+                                onClick={handleUpdateTask}
+                                className="text-green-600 hover:text-green-900 p-2 rounded-full hover:bg-green-50"
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.9 }}
+                              >
+                                <Save className="w-5 h-5" />
+                              </motion.button>
+                              <motion.button
+                                onClick={() => setEditingTask(null)}
+                                className="text-gray-600 hover:text-gray-900 p-2 rounded-full hover:bg-gray-50"
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.9 }}
+                              >
+                                <X className="w-5 h-5" />
+                              </motion.button>
+                            </div>
+                          ) : (
+                            <div className="flex justify-end gap-2">
+                              <motion.button
+                                onClick={() => setEditingTask({ ...task, project_id: task.projects?.id, assigned_to: task.assigned_to?.id })}
+                                className="text-indigo-600 hover:text-indigo-900 p-2 rounded-full hover:bg-indigo-50"
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.9 }}
+                              >
+                                <Edit className="w-5 h-5" />
+                              </motion.button>
+                              <motion.button
+                                onClick={() => handleDeleteTask(task.id)}
+                                className="text-red-600 hover:text-red-900 p-2 rounded-full hover:bg-red-50"
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.9 }}
+                              >
+                                <Trash2 className="w-5 h-5" />
+                              </motion.button>
+                            </div>
+                          )}
+                        </td>
+                      )}
                     </motion.tr>
                   ))}
                 </AnimatePresence>

@@ -69,17 +69,17 @@ const Navbar = ({ user, onLogout }) => {
               });
             }
           }
-          // Notification for admins when a task is completed or corrected and completed
-          if (user.role === 'admin') {
+          // Notification for admins and leaders when a task is completed or corrected and completed
+          if (user.role === 'admin' || user.role === 'leader') {
             if (payload.old.status !== 'completed' && payload.new.status === 'completed') {
               await supabase.from('notifications').insert({
-                user_id: user.id, // Admin's ID
+                user_id: user.id, // Admin/Leader's ID
                 message: `¡Tarea "${payload.new.title}" ha sido marcada como TERMINADA por ${assignedToUsername}!`,
                 type: 'success',
               });
             } else if (payload.old.status === 'correction' && payload.new.status === 'completed') {
               await supabase.from('notifications').insert({
-                user_id: user.id, // Admin's ID
+                user_id: user.id, // Admin/Leader's ID
                 message: `¡Tarea "${payload.new.title}" ha sido CORREGIDA y marcada como TERMINADA por ${assignedToUsername}!`,
                 type: 'success',
               });
@@ -179,9 +179,10 @@ const Navbar = ({ user, onLogout }) => {
           )}
           {user && user.role === 'leader' && (
             <>
-              <Link to="/projects" className="text-gray-600 hover:text-blue-600 transition-colors duration-200 flex items-center gap-1">
-                <Briefcase className="w-5 h-5" />
-                Mis Proyectos
+              {/* Removed "Mis Proyectos" link */}
+              <Link to="/tasks" className="text-gray-600 hover:text-blue-600 transition-colors duration-200 flex items-center gap-1">
+                <ListTodo className="w-5 h-5" />
+                Tareas
               </Link>
             </>
           )}

@@ -351,9 +351,9 @@ const Dashboard = ({ user }) => {
                 </>
               )}
 
-              {user.role === 'admin' && (
+              {(user.role === 'admin' || user.role === 'leader') && (
                 <div className="mt-4 pt-4 border-t border-gray-700 flex flex-col gap-2">
-                  <p className="text-gray-300 font-semibold mb-2">Acciones de Admin:</p>
+                  <p className="text-gray-300 font-semibold mb-2">Acciones de {user.role === 'admin' ? 'Admin' : 'Líder'}:</p>
                   {task.status === 'completed' && (
                     <motion.button
                       onClick={() => handleAdminAction(task.id, 'qc')}
