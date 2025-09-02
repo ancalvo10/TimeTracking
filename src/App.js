@@ -54,6 +54,11 @@ const App = () => {
                 <Route path="/tasks" element={<TasksManagement user={user} />} />
               </>
             )}
+            {user.role === 'leader' && (
+              <>
+                <Route path="/tasks" element={<TasksManagement user={user} />} />
+              </>
+            )}
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </div>

@@ -32,10 +32,11 @@ const ProjectsManagement = ({ user }) => {
       if (projectsError) throw projectsError;
       setProjects(projectsData);
 
+      // Fetch users who are 'leader' or 'admin' to be assigned as project leaders
       const { data: leadersData, error: leadersError } = await supabase
         .from('users')
-        .select('id, username, role_id(name)') // Select role_id and its name
-        .eq('role_id.name', 'leader'); // Filter by role name
+        .select('id, username, role_id(name)')
+        .or('role_id.name.eq.leader,role_id.name.eq.admin'); // Filter by role name: leader OR admin
 
       if (leadersError) throw leadersError;
       setLeaders(leadersData);
