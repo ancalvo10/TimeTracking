@@ -38,6 +38,9 @@ TimeTracking enables users to:
 - **Notifications**
   - Get real-time updates for task assignments and changes (admin and assigned users).
 
+- **Theme Toggle**
+  - Switch between light and dark modes for a comfortable viewing experience.
+
 ## Setup Instructions
 
 1. **Clone the Repository**
