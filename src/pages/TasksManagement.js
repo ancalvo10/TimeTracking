@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../supabaseClient';
 import { ListPlus, Edit, Trash2, Save, X, ListTodo, User, Folder } from 'lucide-react';
 
-const TasksManagement = ({ user }) => {
+const TasksManagement = ({ user, theme }) => {
   const [tasks, setTasks] = useState([]);
   const [digitadores, setDigitadores] = useState([]); // Changed from usersList to digitadores
   const [projectsList, setProjectsList] = useState([]);
@@ -169,37 +169,37 @@ const TasksManagement = ({ user }) => {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'pending': return 'bg-gray-100 text-gray-600';
-      case 'in_progress': return 'bg-blue-100 text-blue-600';
-      case 'paused': return 'bg-yellow-100 text-yellow-600';
-      case 'completed': return 'bg-purple-100 text-purple-600';
-      case 'qc': return 'bg-orange-100 text-orange-600';
-      case 'correction': return 'bg-red-100 text-red-600';
-      case 'finalized': return 'bg-green-100 text-green-600';
-      default: return 'bg-gray-100 text-gray-600';
+      case 'pending': return theme === 'dark' ? 'bg-gray-700 text-gray-300' : 'bg-red-100 text-red-700';
+      case 'in_progress': return theme === 'dark' ? 'bg-red-700 text-white' : 'bg-red-500 text-white';
+      case 'paused': return theme === 'dark' ? 'bg-gray-600 text-gray-300' : 'bg-yellow-100 text-yellow-700';
+      case 'completed': return theme === 'dark' ? 'bg-purple-700 text-white' : 'bg-purple-500 text-white';
+      case 'qc': return theme === 'dark' ? 'bg-orange-700 text-white' : 'bg-orange-500 text-white';
+      case 'correction': return theme === 'dark' ? 'bg-red-900 text-white' : 'bg-red-700 text-white';
+      case 'finalized': return theme === 'dark' ? 'bg-green-700 text-white' : 'bg-green-500 text-white';
+      default: return theme === 'dark' ? 'bg-gray-700 text-gray-300' : 'bg-red-100 text-red-700';
     }
   };
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center min-h-[calc(100vh-80px)]">
-        <p className="text-gray-600 text-lg">Cargando tareas, ¡esto es más lento que un caracol con resaca!</p>
+      <div className={`flex justify-center items-center min-h-[calc(100vh-80px)] ${theme === 'dark' ? 'bg-gray-900' : 'bg-red-50'}`}>
+        <p className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'} text-lg`}>Cargando tareas, ¡esto es más lento que un caracol con resaca!</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex justify-center items-center min-h-[calc(100vh-80px)]">
+      <div className={`flex justify-center items-center min-h-[calc(100vh-80px)] ${theme === 'dark' ? 'bg-gray-900' : 'bg-red-50'}`}>
         <p className="text-red-600 text-lg">Error: {error}</p>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className={`container mx-auto px-4 py-8 ${theme === 'dark' ? 'bg-gray-900 text-gray-100' : 'bg-red-50 text-gray-900'}`}>
       <motion.h1
-        className="text-4xl font-extrabold text-gray-900 mb-8 text-center"
+        className={`text-4xl font-extrabold mb-8 text-center ${theme === 'dark' ? 'text-red-400' : 'text-red-700'}`}
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.6 }}
@@ -229,15 +229,15 @@ const TasksManagement = ({ user }) => {
         </motion.p>
       )}
 
-      <div className="bg-white/90 backdrop-blur-xl border border-gray-200/50 rounded-3xl p-6 shadow-xl">
+      <div className={`${theme === 'dark' ? 'bg-gray-800/90 border-gray-700/50' : 'bg-white/90 border-red-200/50'} backdrop-blur-xl border rounded-3xl p-6 shadow-xl`}>
         {tasks.length === 0 ? (
-          <p className="text-center text-gray-600 py-8">No hay tareas registradas. ¡Hora de asignar trabajo!</p>
+          <p className={`text-center py-8 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>No hay tareas registradas. ¡Hora de asignar trabajo!</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+              <thead className={`${theme === 'dark' ? 'bg-gray-700' : 'bg-gray-50'}`}>
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${theme === 'dark' ? 'text-gray-300' : 'text-gray-500'}`}>
                     Título
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -256,7 +256,7 @@ const TasksManagement = ({ user }) => {
                   )}
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className={`${theme === 'dark' ? 'bg-gray-800 divide-gray-700' : 'bg-white divide-gray-200'} divide-y`}>
                 <AnimatePresence>
                   {tasks.map((task) => (
                     <motion.tr
@@ -272,12 +272,12 @@ const TasksManagement = ({ user }) => {
                             type="text"
                             value={editingTask.title}
                             onChange={(e) => setEditingTask({ ...editingTask, title: e.target.value })}
-                            className="border border-gray-300 rounded-md px-2 py-1 w-full"
+                            className={`border rounded-md px-2 py-1 w-full ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300 text-gray-900'}`}
                           />
                         ) : (
                           <div className="flex items-center gap-2">
-                            <ListTodo className="w-4 h-4 text-gray-500" />
-                            <span className="text-gray-900 font-medium">{task.title}</span>
+                            <ListTodo className={`w-4 h-4 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`} />
+                            <span className={`font-medium ${theme === 'dark' ? 'text-gray-100' : 'text-gray-900'}`}>{task.title}</span>
                           </div>
                         )}
                       </td>
@@ -286,7 +286,7 @@ const TasksManagement = ({ user }) => {
                           <select
                             value={editingTask.project_id}
                             onChange={(e) => setEditingTask({ ...editingTask, project_id: e.target.value })}
-                            className="border border-gray-300 rounded-md px-2 py-1 w-full"
+                            className={`border rounded-md px-2 py-1 w-full ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300 text-gray-900'}`}
                           >
                             {projectsList.map(project => (
                               <option key={project.id} value={project.id}>{project.name}</option>
@@ -294,8 +294,8 @@ const TasksManagement = ({ user }) => {
                           </select>
                         ) : (
                           <div className="flex items-center gap-2">
-                            <Folder className="w-4 h-4 text-gray-500" />
-                            <span className="text-gray-700">{task.projects?.name || 'N/A'}</span>
+                            <Folder className={`w-4 h-4 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`} />
+                            <span className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>{task.projects?.name || 'N/A'}</span>
                           </div>
                         )}
                       </td>
@@ -304,7 +304,7 @@ const TasksManagement = ({ user }) => {
                           <select
                             value={editingTask.assigned_to}
                             onChange={(e) => setEditingTask({ ...editingTask, assigned_to: e.target.value })}
-                            className="border border-gray-300 rounded-md px-2 py-1 w-full"
+                            className={`border rounded-md px-2 py-1 w-full ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300 text-gray-900'}`}
                           >
                             {digitadores.map(digitador => ( // Use digitadores
                               <option key={digitador.id} value={digitador.id}>{digitador.username}</option>
@@ -312,8 +312,8 @@ const TasksManagement = ({ user }) => {
                           </select>
                         ) : (
                           <div className="flex items-center gap-2">
-                            <User className="w-4 h-4 text-gray-500" />
-                            <span className="text-gray-700">{task.assigned_to?.username || 'N/A'}</span>
+                            <User className={`w-4 h-4 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`} />
+                            <span className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>{task.assigned_to?.username || 'N/A'}</span>
                           </div>
                         )}
                       </td>
@@ -322,7 +322,7 @@ const TasksManagement = ({ user }) => {
                           <select
                             value={editingTask.status}
                             onChange={(e) => setEditingTask({ ...editingTask, status: e.target.value })}
-                            className="border border-gray-300 rounded-md px-2 py-1 w-full"
+                            className={`border rounded-md px-2 py-1 w-full ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300 text-gray-900'}`}
                           >
                             {['pending', 'in_progress', 'paused', 'completed', 'qc', 'correction', 'finalized'].map(s => (
                               <option key={s} value={s}>{s.replace('_', ' ').toUpperCase()}</option>
@@ -395,16 +395,16 @@ const TasksManagement = ({ user }) => {
             exit={{ opacity: 0 }}
           >
             <motion.div
-              className="bg-white rounded-3xl p-8 shadow-2xl w-full max-w-md"
+              className={`${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} rounded-3xl p-8 shadow-2xl w-full max-w-md`}
               initial={{ y: -50, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 50, opacity: 0 }}
               transition={{ type: "spring", stiffness: 100, damping: 15 }}
             >
-              <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">Crear Nueva Tarea</h2>
+              <h2 className={`text-2xl font-bold mb-6 text-center ${theme === 'dark' ? 'text-gray-100' : 'text-gray-800'}`}>Crear Nueva Tarea</h2>
               <form onSubmit={handleAddTask} className="space-y-4">
                 <div>
-                  <label htmlFor="newTaskTitle" className="block text-gray-700 text-sm font-medium mb-2">
+                  <label htmlFor="newTaskTitle" className={`block text-sm font-medium mb-2 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
                     Título de la Tarea
                   </label>
                   <input
@@ -412,30 +412,30 @@ const TasksManagement = ({ user }) => {
                     id="newTaskTitle"
                     value={newTask.title}
                     onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                    className={`w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300 text-gray-900'}`}
                     required
                   />
                 </div>
                 <div>
-                  <label htmlFor="newTaskDescription" className="block text-gray-700 text-sm font-medium mb-2">
+                  <label htmlFor="newTaskDescription" className={`block text-sm font-medium mb-2 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
                     Descripción
                   </label>
                   <textarea
                     id="newTaskDescription"
                     value={newTask.description}
                     onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 h-24 resize-y"
+                    className={`w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 h-24 resize-y ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300 text-gray-900'}`}
                   />
                 </div>
                 <div>
-                  <label htmlFor="newTaskProject" className="block text-gray-700 text-sm font-medium mb-2">
+                  <label htmlFor="newTaskProject" className={`block text-sm font-medium mb-2 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
                     Proyecto
                   </label>
                   <select
                     id="newTaskProject"
                     value={newTask.project_id}
                     onChange={(e) => setNewTask({ ...newTask, project_id: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                    className={`w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300 text-gray-900'}`}
                     required
                   >
                     <option value="">Selecciona un proyecto</option>
@@ -445,14 +445,14 @@ const TasksManagement = ({ user }) => {
                   </select>
                 </div>
                 <div>
-                  <label htmlFor="newTaskAssignedTo" className="block text-gray-700 text-sm font-medium mb-2">
+                  <label htmlFor="newTaskAssignedTo" className={`block text-sm font-medium mb-2 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
                     Asignar a
                   </label>
                   <select
                     id="newTaskAssignedTo"
                     value={newTask.assigned_to}
                     onChange={(e) => setNewTask({ ...newTask, assigned_to: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                    className={`w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300 text-gray-900'}`}
                     required
                   >
                     <option value="">Selecciona un usuario</option>
@@ -466,7 +466,7 @@ const TasksManagement = ({ user }) => {
                   <motion.button
                     type="button"
                     onClick={() => setShowAddTaskModal(false)}
-                    className="bg-gray-200 text-gray-800 px-5 py-2 rounded-xl hover:bg-gray-300 transition-colors duration-200"
+                    className={`${theme === 'dark' ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'} px-5 py-2 rounded-xl transition-colors duration-200`}
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                   >

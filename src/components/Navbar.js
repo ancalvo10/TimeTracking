@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LogOut, User, Briefcase, Clock, ListTodo, Bell, XCircle } from 'lucide-react';
+import { LogOut, User, Briefcase, Clock, ListTodo, Bell, XCircle, Sun, Moon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 
-const Navbar = ({ user, onLogout }) => {
+const Navbar = ({ user, onLogout, theme, toggleTheme }) => {
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
 
@@ -149,29 +149,29 @@ const Navbar = ({ user, onLogout }) => {
 
   return (
     <motion.nav
-      className="bg-white/90 backdrop-blur-xl border-b border-gray-200/50 shadow-sm p-4 sticky top-0 z-50"
+      className={`${theme === 'dark' ? 'bg-gray-800/90 border-gray-700/50' : 'bg-red-100/90 border-red-200/50'} backdrop-blur-xl border-b shadow-sm p-4 sticky top-0 z-50`}
       initial={{ y: -100 }}
       animate={{ y: 0 }}
       transition={{ type: "spring", stiffness: 100, damping: 20 }}
     >
       <div className="container mx-auto flex justify-between items-center">
-        <Link to="/" className="flex items-center gap-2 text-2xl font-bold text-gray-800">
-          <Clock className="w-7 h-7 text-blue-600" />
+        <Link to="/" className="flex items-center gap-2 text-2xl font-bold text-red-500">
+          <Clock className="w-7 h-7 text-red-500" />
           TimeTracker
         </Link>
 
         <div className="flex items-center gap-6">
           {user && user.role === 'admin' && (
             <>
-              <Link to="/users" className="text-gray-600 hover:text-blue-600 transition-colors duration-200 flex items-center gap-1">
+              <Link to="/users" className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} hover:text-red-400 transition-colors duration-200 flex items-center gap-1`}>
                 <User className="w-5 h-5" />
                 Usuarios
               </Link>
-              <Link to="/projects" className="text-gray-600 hover:text-blue-600 transition-colors duration-200 flex items-center gap-1">
+              <Link to="/projects" className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} hover:text-red-400 transition-colors duration-200 flex items-center gap-1`}>
                 <Briefcase className="w-5 h-5" />
                 Proyectos
               </Link>
-              <Link to="/tasks" className="text-gray-600 hover:text-blue-600 transition-colors duration-200 flex items-center gap-1">
+              <Link to="/tasks" className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} hover:text-red-400 transition-colors duration-200 flex items-center gap-1`}>
                 <ListTodo className="w-5 h-5" />
                 Tareas
               </Link>
@@ -179,8 +179,7 @@ const Navbar = ({ user, onLogout }) => {
           )}
           {user && user.role === 'leader' && (
             <>
-              {/* Removed "Mis Proyectos" link */}
-              <Link to="/tasks" className="text-gray-600 hover:text-blue-600 transition-colors duration-200 flex items-center gap-1">
+              <Link to="/tasks" className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} hover:text-red-400 transition-colors duration-200 flex items-center gap-1`}>
                 <ListTodo className="w-5 h-5" />
                 Tareas
               </Link>
@@ -190,13 +189,13 @@ const Navbar = ({ user, onLogout }) => {
           <div className="relative">
             <motion.button
               onClick={() => setShowNotifications(!showNotifications)}
-              className="relative p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors duration-200"
+              className={`relative p-2 rounded-full ${theme === 'dark' ? 'bg-gray-700' : 'bg-red-200'} hover:${theme === 'dark' ? 'bg-gray-600' : 'bg-red-300'} transition-colors duration-200`}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
-              <Bell className="w-5 h-5 text-gray-600" />
+              <Bell className={`w-5 h-5 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`} />
               {notifications.length > 0 && (
-                <span className="absolute top-0 right-0 block h-3 w-3 rounded-full ring-2 ring-white bg-red-500 text-white text-xs flex items-center justify-center">
+                <span className="absolute top-0 right-0 block h-3 w-3 rounded-full ring-2 ring-gray-800 bg-red-500 text-white text-xs flex items-center justify-center">
                   {notifications.length}
                 </span>
               )}
@@ -209,11 +208,11 @@ const Navbar = ({ user, onLogout }) => {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.2 }}
-                  className="absolute right-0 mt-2 w-80 bg-white border border-gray-200 rounded-lg shadow-lg py-2 z-50"
+                  className={`absolute right-0 mt-2 w-80 ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-lg shadow-lg py-2 z-50 ${theme === 'dark' ? 'text-gray-200' : 'text-gray-800'}`}
                 >
-                  <h3 className="text-lg font-semibold text-gray-800 px-4 mb-2">Notificaciones</h3>
+                  <h3 className="text-lg font-semibold text-red-400 px-4 mb-2">Notificaciones</h3>
                   {notifications.length === 0 ? (
-                    <p className="text-gray-500 text-sm px-4 py-2">No hay notificaciones nuevas.</p>
+                    <p className={`${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'} text-sm px-4 py-2`}>No hay notificaciones nuevas.</p>
                   ) : (
                     <div className="max-h-60 overflow-y-auto">
                       {notifications.map(notif => (
@@ -222,12 +221,12 @@ const Navbar = ({ user, onLogout }) => {
                           initial={{ opacity: 0, x: -20 }}
                           animate={{ opacity: 1, x: 0 }}
                           exit={{ opacity: 0, x: 20 }}
-                          className={`flex items-center justify-between gap-2 px-4 py-2 border-b border-gray-100 last:border-b-0 ${notif.type === 'warning' ? 'bg-yellow-50' : notif.type === 'success' ? 'bg-green-50' : 'bg-blue-50'}`}
+                          className={`flex items-center justify-between gap-2 px-4 py-2 border-b ${theme === 'dark' ? 'border-gray-700' : 'border-gray-100'} last:border-b-0 ${notif.type === 'warning' ? (theme === 'dark' ? 'bg-yellow-900/30' : 'bg-yellow-50') : notif.type === 'success' ? (theme === 'dark' ? 'bg-green-900/30' : 'bg-green-50') : (theme === 'dark' ? 'bg-blue-900/30' : 'bg-blue-50')}`}
                         >
-                          <p className="text-sm text-gray-700 flex-grow">{notif.message}</p>
+                          <p className="text-sm flex-grow">{notif.message}</p>
                           <motion.button
                             onClick={() => clearNotification(notif.id)}
-                            className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100"
+                            className={`${theme === 'dark' ? 'text-gray-400 hover:text-gray-200 hover:bg-gray-700' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'} p-1 rounded-full`}
                             whileHover={{ scale: 1.1 }}
                             whileTap={{ scale: 0.9 }}
                           >
@@ -242,12 +241,21 @@ const Navbar = ({ user, onLogout }) => {
             </AnimatePresence>
           </div>
 
-          <span className="text-gray-700 font-medium hidden sm:block">
+          <motion.button
+            onClick={toggleTheme}
+            className={`p-2 rounded-full ${theme === 'dark' ? 'bg-gray-700 text-gray-300' : 'bg-red-200 text-gray-700'} hover:${theme === 'dark' ? 'bg-gray-600' : 'bg-red-300'} transition-colors duration-200`}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+          </motion.button>
+
+          <span className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} font-medium hidden sm:block`}>
             Hola, {user?.username || 'Invitado'} ({user?.role})
           </span>
           <motion.button
             onClick={handleLogoutClick}
-            className="bg-red-500 text-white px-4 py-2 rounded-lg shadow-md hover:bg-red-600 transition-colors duration-200 flex items-center gap-2"
+            className="bg-red-600 text-white px-4 py-2 rounded-lg shadow-md hover:bg-red-700 transition-colors duration-200 flex items-center gap-2"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
           >

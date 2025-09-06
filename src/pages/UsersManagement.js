@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../supabaseClient';
 import { UserPlus, Edit, Trash2, Save, X, User as UserIcon } from 'lucide-react';
 
-const UsersManagement = () => {
+const UsersManagement = ({ theme }) => {
   const [users, setUsers] = useState([]);
   const [roles, setRoles] = useState([]); // New state for roles
   const [loading, setLoading] = useState(true);
@@ -126,16 +126,16 @@ const UsersManagement = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center min-h-[calc(100vh-80px)]">
-        <p className="text-gray-600 text-lg">Cargando usuarios, ¡no te desesperes!</p>
+      <div className={`flex justify-center items-center min-h-[calc(100vh-80px)] ${theme === 'dark' ? 'bg-gray-900' : 'bg-red-50'}`}>
+        <p className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'} text-lg`}>Cargando usuarios, ¡no te desesperes!</p>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className={`container mx-auto px-4 py-8 ${theme === 'dark' ? 'bg-gray-900 text-gray-100' : 'bg-red-50 text-gray-900'}`}>
       <motion.h1
-        className="text-4xl font-extrabold text-gray-900 mb-8 text-center"
+        className={`text-4xl font-extrabold mb-8 text-center ${theme === 'dark' ? 'text-red-400' : 'text-red-700'}`}
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.6 }}
@@ -163,29 +163,29 @@ const UsersManagement = () => {
         </motion.p>
       )}
 
-      <div className="bg-white/90 backdrop-blur-xl border border-gray-200/50 rounded-3xl p-6 shadow-xl">
+      <div className={`${theme === 'dark' ? 'bg-gray-800/90 border-gray-700/50' : 'bg-white/90 border-red-200/50'} backdrop-blur-xl border rounded-3xl p-6 shadow-xl`}>
         {users.length === 0 ? (
-          <p className="text-center text-gray-600 py-8">No hay usuarios registrados. ¡Es hora de contratar!</p>
+          <p className={`text-center py-8 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>No hay usuarios registrados. ¡Es hora de contratar!</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+              <thead className={`${theme === 'dark' ? 'bg-gray-700' : 'bg-gray-50'}`}>
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${theme === 'dark' ? 'text-gray-300' : 'text-gray-500'}`}>
                     Usuario
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${theme === 'dark' ? 'text-gray-300' : 'text-gray-500'}`}>
                     Operador #
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${theme === 'dark' ? 'text-gray-300' : 'text-gray-500'}`}>
                     Rol
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className={`px-6 py-3 text-right text-xs font-medium uppercase tracking-wider ${theme === 'dark' ? 'text-gray-300' : 'text-gray-500'}`}>
                     Acciones
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className={`${theme === 'dark' ? 'bg-gray-800 divide-gray-700' : 'bg-white divide-gray-200'} divide-y`}>
                 <AnimatePresence>
                   {users.map((user) => (
                     <motion.tr
@@ -201,12 +201,12 @@ const UsersManagement = () => {
                             type="text"
                             value={editingUser.username}
                             onChange={(e) => setEditingUser({ ...editingUser, username: e.target.value })}
-                            className="border border-gray-300 rounded-md px-2 py-1 w-full"
+                            className={`border rounded-md px-2 py-1 w-full ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300 text-gray-900'}`}
                           />
                         ) : (
                           <div className="flex items-center gap-2">
-                            <UserIcon className="w-4 h-4 text-gray-500" />
-                            <span className="text-gray-900 font-medium">{user.username}</span>
+                            <UserIcon className={`w-4 h-4 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`} />
+                            <span className={`font-medium ${theme === 'dark' ? 'text-gray-100' : 'text-gray-900'}`}>{user.username}</span>
                           </div>
                         )}
                       </td>
@@ -216,10 +216,10 @@ const UsersManagement = () => {
                             type="number"
                             value={editingUser.operator_number}
                             onChange={(e) => setEditingUser({ ...editingUser, operator_number: parseInt(e.target.value) || '' })}
-                            className="border border-gray-300 rounded-md px-2 py-1 w-full"
+                            className={`border rounded-md px-2 py-1 w-full ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300 text-gray-900'}`}
                           />
                         ) : (
-                          <span className="text-gray-700">{user.operator_number}</span>
+                          <span className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>{user.operator_number}</span>
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -227,7 +227,7 @@ const UsersManagement = () => {
                           <select
                             value={editingUser.role_id}
                             onChange={(e) => setEditingUser({ ...editingUser, role_id: e.target.value })}
-                            className="border border-gray-300 rounded-md px-2 py-1 w-full"
+                            className={`border rounded-md px-2 py-1 w-full ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300 text-gray-900'}`}
                           >
                             {roles.map(role => (
                               <option key={role.id} value={role.id}>{role.name}</option>
@@ -298,16 +298,16 @@ const UsersManagement = () => {
             exit={{ opacity: 0 }}
           >
             <motion.div
-              className="bg-white rounded-3xl p-8 shadow-2xl w-full max-w-md"
+              className={`${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} rounded-3xl p-8 shadow-2xl w-full max-w-md`}
               initial={{ y: -50, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 50, opacity: 0 }}
               transition={{ type: "spring", stiffness: 100, damping: 15 }}
             >
-              <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">Agregar Nuevo Usuario</h2>
+              <h2 className={`text-2xl font-bold mb-6 text-center ${theme === 'dark' ? 'text-gray-100' : 'text-gray-800'}`}>Agregar Nuevo Usuario</h2>
               <form onSubmit={handleAddUser} className="space-y-4">
                 <div>
-                  <label htmlFor="newUsername" className="block text-gray-700 text-sm font-medium mb-2">
+                  <label htmlFor="newUsername" className={`block text-sm font-medium mb-2 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
                     Nombre de Usuario
                   </label>
                   <input
@@ -315,12 +315,12 @@ const UsersManagement = () => {
                     id="newUsername"
                     value={newUser.username}
                     onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                    className={`w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300 text-gray-900'}`}
                     required
                   />
                 </div>
                 <div>
-                  <label htmlFor="newOperatorNumber" className="block text-gray-700 text-sm font-medium mb-2">
+                  <label htmlFor="newOperatorNumber" className={`block text-sm font-medium mb-2 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
                     Número de Operador
                   </label>
                   <input
@@ -328,14 +328,14 @@ const UsersManagement = () => {
                     id="newOperatorNumber"
                     value={newUser.operator_number}
                     onChange={(e) => setNewUser({ ...newUser, operator_number: parseInt(e.target.value) || '' })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                    className={`w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300 text-gray-900'}`}
                     required
                     min="0"
                     max="9999"
                   />
                 </div>
                 <div>
-                  <label htmlFor="newPassword" className="block text-gray-700 text-sm font-medium mb-2">
+                  <label htmlFor="newPassword" className={`block text-sm font-medium mb-2 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
                     Contraseña
                   </label>
                   <input
@@ -343,19 +343,19 @@ const UsersManagement = () => {
                     id="newPassword"
                     value={newUser.password}
                     onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                    className={`w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300 text-gray-900'}`}
                     required
                   />
                 </div>
                 <div>
-                  <label htmlFor="newRole" className="block text-gray-700 text-sm font-medium mb-2">
+                  <label htmlFor="newRole" className={`block text-sm font-medium mb-2 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
                     Rol
                   </label>
                   <select
                     id="newRole"
                     value={newUser.role_id}
                     onChange={(e) => setNewUser({ ...newUser, role_id: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                    className={`w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300 text-gray-900'}`}
                   >
                     {roles.map(role => (
                       <option key={role.id} value={role.id}>{role.name}</option>
@@ -367,7 +367,7 @@ const UsersManagement = () => {
                   <motion.button
                     type="button"
                     onClick={() => setShowAddUserModal(false)}
-                    className="bg-gray-200 text-gray-800 px-5 py-2 rounded-xl hover:bg-gray-300 transition-colors duration-200"
+                    className={`${theme === 'dark' ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'} px-5 py-2 rounded-xl transition-colors duration-200`}
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                   >

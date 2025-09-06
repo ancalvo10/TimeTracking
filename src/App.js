@@ -11,6 +11,16 @@ import { supabase } from './supabaseClient';
 const App = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [theme, setTheme] = useState('dark'); // Default theme
+
+  // Apply theme to body class
+  useEffect(() => {
+    document.body.className = theme === 'dark' ? 'bg-gray-900 text-gray-100' : 'bg-red-50 text-gray-900';
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prevTheme => (prevTheme === 'light' ? 'dark' : 'light'));
+  };
 
   useEffect(() => {
     const storedUser = localStorage.getItem('currentUser');
@@ -43,20 +53,20 @@ const App = () => {
   return (
     <Router>
       {user ? (
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
-          <Navbar user={user} onLogout={handleLogout} />
+        <div className={`${theme === 'dark' ? 'bg-gray-900 text-gray-100' : 'bg-red-50 text-gray-900'} min-h-screen`}>
+          <Navbar user={user} onLogout={handleLogout} theme={theme} toggleTheme={toggleTheme} />
           <Routes>
-            <Route path="/" element={<Dashboard user={user} />} />
+            <Route path="/" element={<Dashboard user={user} theme={theme} toggleTheme={toggleTheme} />} />
             {user.role === 'admin' && (
               <>
-                <Route path="/users" element={<UsersManagement />} />
-                <Route path="/projects" element={<ProjectsManagement user={user} />} />
-                <Route path="/tasks" element={<TasksManagement user={user} />} />
+                <Route path="/users" element={<UsersManagement theme={theme} />} />
+                <Route path="/projects" element={<ProjectsManagement user={user} theme={theme} />} />
+                <Route path="/tasks" element={<TasksManagement user={user} theme={theme} />} />
               </>
             )}
             {user.role === 'leader' && (
               <>
-                <Route path="/tasks" element={<TasksManagement user={user} />} />
+                <Route path="/tasks" element={<TasksManagement user={user} theme={theme} />} />
               </>
             )}
             <Route path="*" element={<Navigate to="/" />} />
