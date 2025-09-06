@@ -1,13 +1,14 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../supabaseClient';
-import { Clock, Play, Pause, CheckCircle, XCircle, Hourglass, AlertCircle, RefreshCcw } from 'lucide-react';
+import { Clock, Play, Pause, CheckCircle, XCircle, Hourglass, AlertCircle, RefreshCcw, Sun, Moon } from 'lucide-react';
 
-const Dashboard = ({ user }) => {
+const Dashboard = ({ user, theme, toggleTheme }) => {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeTimer, setActiveTimer] = useState(null); // { taskId, startTime, totalDurationAtStart }
+  const [filterStatus, setFilterStatus] = useState('ALL'); // New state for filter
 
   const fetchTasks = useCallback(async () => {
     setLoading(true);
@@ -197,14 +198,14 @@ const Dashboard = ({ user }) => {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'pending': return 'bg-gray-700 text-gray-300';
-      case 'in_progress': return 'bg-red-700 text-white';
-      case 'paused': return 'bg-gray-600 text-gray-300';
-      case 'completed': return 'bg-purple-700 text-white';
-      case 'qc': return 'bg-orange-700 text-white';
-      case 'correction': return 'bg-red-900 text-white';
-      case 'finalized': return 'bg-green-700 text-white';
-      default: return 'bg-gray-700 text-gray-300';
+      case 'pending': return theme === 'dark' ? 'bg-gray-700 text-gray-300' : 'bg-red-100 text-red-700';
+      case 'in_progress': return theme === 'dark' ? 'bg-red-700 text-white' : 'bg-red-500 text-white';
+      case 'paused': return theme === 'dark' ? 'bg-gray-600 text-gray-300' : 'bg-yellow-100 text-yellow-700';
+      case 'completed': return theme === 'dark' ? 'bg-purple-700 text-white' : 'bg-purple-500 text-white';
+      case 'qc': return theme === 'dark' ? 'bg-orange-700 text-white' : 'bg-orange-500 text-white';
+      case 'correction': return theme === 'dark' ? 'bg-red-900 text-white' : 'bg-red-700 text-white';
+      case 'finalized': return theme === 'dark' ? 'bg-green-700 text-white' : 'bg-green-500 text-white';
+      default: return theme === 'dark' ? 'bg-gray-700 text-gray-300' : 'bg-red-100 text-red-700';
     }
   };
 
@@ -232,26 +233,31 @@ const Dashboard = ({ user }) => {
     return formatTime(totalSeconds);
   };
 
+  const filteredTasks = tasks.filter(task => {
+    if (filterStatus === 'ALL') return true;
+    return task.status.toUpperCase() === filterStatus;
+  });
+
   if (loading) {
     return (
-      <div className="flex justify-center items-center min-h-[calc(100vh-80px)] bg-gray-900">
-        <p className="text-gray-300 text-lg">Cargando tareas, ¡no te duermas!</p>
+      <div className={`flex justify-center items-center min-h-[calc(100vh-80px)] ${theme === 'dark' ? 'bg-gray-900' : 'bg-red-50'}`}>
+        <p className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'} text-lg`}>Cargando tareas, ¡no te duermas!</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex justify-center items-center min-h-[calc(100vh-80px)] bg-gray-900">
+      <div className={`flex justify-center items-center min-h-[calc(100vh-80px)] ${theme === 'dark' ? 'bg-gray-900' : 'bg-red-50'}`}>
         <p className="text-red-500 text-lg">Error: {error}</p>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 bg-gray-900 text-gray-100">
+    <div className={`container mx-auto px-4 py-8 ${theme === 'dark' ? 'bg-gray-900 text-gray-100' : 'bg-red-50 text-gray-900'}`}>
       <motion.h1
-        className="text-4xl font-extrabold text-red-500 mb-8 text-center"
+        className={`text-4xl font-extrabold mb-8 text-center ${theme === 'dark' ? 'text-red-400' : 'text-red-700'}`}
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.6 }}
@@ -259,55 +265,75 @@ const Dashboard = ({ user }) => {
         Tu Panel de Tareas
       </motion.h1>
 
-      {tasks.length === 0 ? (
+      <div className="flex justify-center mb-8">
+        <div className={`p-1 rounded-full ${theme === 'dark' ? 'bg-gray-800' : 'bg-red-200'} flex items-center`}>
+          {['ALL', 'PENDING', 'IN_PROGRESS', 'PAUSED', 'CORRECTION', 'COMPLETED', 'QC', 'FINALIZED'].map(status => (
+            <motion.button
+              key={status}
+              onClick={() => setFilterStatus(status)}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200 ${
+                filterStatus === status
+                  ? (theme === 'dark' ? 'bg-red-600 text-white' : 'bg-red-500 text-white')
+                  : (theme === 'dark' ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-red-300')
+              }`}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              {status.replace('_', ' ')}
+            </motion.button>
+          ))}
+        </div>
+      </div>
+
+      {filteredTasks.length === 0 ? (
         <motion.div
-          className="bg-gray-800/90 backdrop-blur-xl border border-gray-700/50 rounded-3xl p-12 text-center shadow-xl"
+          className={`backdrop-blur-xl border rounded-3xl p-12 text-center shadow-xl ${theme === 'dark' ? 'bg-gray-800/90 border-gray-700/50' : 'bg-white/80 border-red-200/50'}`}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
           <motion.div
-            className="w-24 h-24 bg-gradient-to-br from-red-900 to-black rounded-full flex items-center justify-center mx-auto mb-6"
+            className={`w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 ${theme === 'dark' ? 'bg-gradient-to-br from-red-900 to-black' : 'bg-gradient-to-br from-red-300 to-red-500'}`}
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ delay: 0.2, duration: 0.5, type: "spring" }}
           >
-            <Clock className="w-12 h-12 text-red-500" />
+            <Clock className={`w-12 h-12 ${theme === 'dark' ? 'text-red-500' : 'text-white'}`} />
           </motion.div>
-          <h3 className="text-2xl font-bold text-gray-100 mb-3">
-            ¡No hay tareas asignadas!
+          <h3 className={`text-2xl font-bold mb-3 ${theme === 'dark' ? 'text-gray-100' : 'text-gray-800'}`}>
+            ¡No hay tareas para este estado!
           </h3>
-          <p className="text-gray-400 font-medium">
-            Parece que tienes tiempo libre... o tu admin no te ha asignado nada.
+          <p className={`${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'} font-medium`}>
+            Intenta cambiar el filtro o crea una nueva tarea.
           </p>
         </motion.div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {tasks.map((task, index) => (
+          {filteredTasks.map((task, index) => (
             <motion.div
               key={task.id}
-              className="bg-gray-800/90 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-6 shadow-lg flex flex-col"
+              className={`backdrop-blur-xl border rounded-2xl p-6 shadow-lg flex flex-col ${theme === 'dark' ? 'bg-gray-800/90 border-gray-700/50' : 'bg-white/90 border-red-200/50'}`}
               initial={{ opacity: 0, y: 50 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: index * 0.1 }}
               whileHover={{ translateY: -5 }}
             >
               <div className="flex justify-between items-start mb-4">
-                <h3 className="text-xl font-semibold text-gray-100 leading-tight pr-4">{task.title}</h3>
+                <h3 className={`text-xl font-semibold leading-tight pr-4 ${theme === 'dark' ? 'text-gray-100' : 'text-gray-800'}`}>{task.title}</h3>
                 <span className={`px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1 ${getStatusColor(task.status)}`}>
                   {getStatusIcon(task.status)}
                   {task.status.replace('_', ' ').toUpperCase()}
                 </span>
               </div>
-              <p className="text-gray-300 text-sm mb-4 flex-grow">{task.description}</p>
-              <div className="text-gray-400 text-xs mb-4">
-                <p>Proyecto: <span className="font-medium text-gray-200">{task.projects.name}</span></p>
-                <p>Asignado a: <span className="font-medium text-gray-200">{task.assigned_to.username}</span></p>
+              <p className={`text-sm mb-4 flex-grow ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>{task.description}</p>
+              <div className={`text-xs mb-4 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
+                <p>Proyecto: <span className={`font-medium ${theme === 'dark' ? 'text-gray-200' : 'text-gray-700'}`}>{task.projects.name}</span></p>
+                <p>Asignado a: <span className={`font-medium ${theme === 'dark' ? 'text-gray-200' : 'text-gray-700'}`}>{task.assigned_to.username}</span></p>
               </div>
 
               {/* Display Timer */}
-              <div className="flex items-center justify-center bg-gray-700 border border-gray-600 rounded-lg p-3 mb-4">
-                <div className="flex items-center gap-2 text-red-400 font-bold text-xl">
+              <div className={`flex items-center justify-center border rounded-lg p-3 mb-4 ${theme === 'dark' ? 'bg-gray-700 border-gray-600' : 'bg-red-100 border-red-200'}`}>
+                <div className={`flex items-center gap-2 font-bold text-xl ${theme === 'dark' ? 'text-red-400' : 'text-red-600'}`}>
                   <Clock className="w-6 h-6" />
                   <span>{getElapsedTime(task)}</span>
                 </div>
@@ -352,12 +378,12 @@ const Dashboard = ({ user }) => {
               )}
 
               {(user.role === 'admin' || user.role === 'leader') && (
-                <div className="mt-4 pt-4 border-t border-gray-700 flex flex-col gap-2">
-                  <p className="text-gray-300 font-semibold mb-2">Acciones de {user.role === 'admin' ? 'Admin' : 'Líder'}:</p>
+                <div className={`mt-4 pt-4 border-t flex flex-col gap-2 ${theme === 'dark' ? 'border-gray-700' : 'border-red-200'}`}>
+                  <p className={`font-semibold mb-2 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>Acciones de {user.role === 'admin' ? 'Admin' : 'Líder'}:</p>
                   {task.status === 'completed' && (
                     <motion.button
                       onClick={() => handleAdminAction(task.id, 'qc')}
-                      className="w-full bg-orange-600 text-white font-semibold py-2 rounded-lg shadow-md hover:bg-orange-700 transition-all duration-200 flex items-center justify-center gap-2"
+                      className="w-full bg-orange-600 text-white font-semibold py-2 rounded-lg shadow-md hover:bg-orange-700 transition-all duration-300 flex items-center justify-center gap-2"
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                     >
@@ -369,7 +395,7 @@ const Dashboard = ({ user }) => {
                     <>
                       <motion.button
                         onClick={() => handleAdminAction(task.id, 'finalized')}
-                        className="w-full bg-green-600 text-white font-semibold py-2 rounded-lg shadow-md hover:bg-green-700 transition-all duration-200 flex items-center justify-center gap-2"
+                        className="w-full bg-green-600 text-white font-semibold py-2 rounded-lg shadow-md hover:bg-green-700 transition-all duration-300 flex items-center justify-center gap-2"
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
                       >
@@ -378,7 +404,7 @@ const Dashboard = ({ user }) => {
                       </motion.button>
                       <motion.button
                         onClick={() => handleAdminAction(task.id, 'correction')}
-                        className="w-full bg-red-800 text-white font-semibold py-2 rounded-lg shadow-md hover:bg-red-900 transition-all duration-200 flex items-center justify-center gap-2"
+                        className="w-full bg-red-800 text-white font-semibold py-2 rounded-lg shadow-md hover:bg-red-900 transition-all duration-300 flex items-center justify-center gap-2"
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
                       >
