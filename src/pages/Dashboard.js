@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../supabaseClient';
-import { Clock, Play, Pause, CheckCircle, XCircle, Hourglass, AlertCircle, RefreshCcw, Sun, Moon } from 'lucide-react';
+import { Clock, Play, Pause, CheckCircle, XCircle, Hourglass, AlertCircle, RefreshCcw, Sun, Moon, MessageSquare, Edit, Trash2, Send, Save } from 'lucide-react';
 
 const Dashboard = ({ user, theme, toggleTheme }) => {
   const [tasks, setTasks] = useState([]);
@@ -9,6 +9,11 @@ const Dashboard = ({ user, theme, toggleTheme }) => {
   const [error, setError] = useState('');
   const [activeTimer, setActiveTimer] = useState(null); // { taskId, startTime, totalDurationAtStart }
   const [filterStatus, setFilterStatus] = useState('ALL'); // New state for filter
+  const [showCommentsModal, setShowCommentsModal] = useState(false);
+  const [selectedTaskComments, setSelectedTaskComments] = useState([]);
+  const [newCommentText, setNewCommentText] = useState('');
+  const [editingComment, setEditingComment] = useState(null); // { id, message }
+  const [currentTaskIdForComments, setCurrentTaskIdForComments] = useState(null); // To store the task ID for comments
 
   const fetchTasks = useCallback(async () => {
     setLoading(true);
@@ -238,6 +243,137 @@ const Dashboard = ({ user, theme, toggleTheme }) => {
     return task.status.toUpperCase() === filterStatus;
   });
 
+  const handleOpenComments = async (taskId) => {
+    setCurrentTaskIdForComments(taskId);
+    try {
+      const { data, error } = await supabase
+        .from('task_comments')
+        .select(`
+          id, message, created_at,
+          user_id(username, id)
+        `)
+        .eq('task_id', taskId)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      setSelectedTaskComments(data.map(comment => ({
+        ...comment,
+        created_at: new Date(comment.created_at).toLocaleString()
+      })));
+      setShowCommentsModal(true);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const handleAddComment = async () => {
+    if (!newCommentText.trim() || !currentTaskIdForComments) return;
+    try {
+      const { data, error } = await supabase
+        .from('task_comments')
+        .insert({
+          task_id: currentTaskIdForComments,
+          user_id: user.id,
+          message: newCommentText.trim(),
+        })
+        .select(`
+          id, message, created_at,
+          user_id(username, id)
+        `)
+        .single();
+
+      if (error) throw error;
+      setSelectedTaskComments(prev => [...prev, { ...data, created_at: new Date(data.created_at).toLocaleString() }]);
+      setNewCommentText('');
+
+      // Notify relevant users about the new comment
+      const task = tasks.find(t => t.id === currentTaskIdForComments);
+      if (task) {
+        const usersToNotify = new Set();
+        // Notify assigned user if not current user
+        if (task.assigned_to.id !== user.id) {
+          usersToNotify.add(task.assigned_to.id);
+        }
+        // Notify leader of the project
+        const { data: projectData, error: projectError } = await supabase
+          .from('projects')
+          .select('leader_id')
+          .eq('id', task.projects.id)
+          .single();
+        if (!projectError && projectData.leader_id && projectData.leader_id !== user.id) {
+          usersToNotify.add(projectData.leader_id);
+        }
+        // Notify admins
+        const { data: admins, error: adminsError } = await supabase
+          .from('users')
+          .select('id')
+          .eq('role_id.name', 'admin');
+        if (!adminsError) {
+          admins.forEach(admin => {
+            if (admin.id !== user.id) usersToNotify.add(admin.id);
+          });
+        }
+
+        for (const userId of usersToNotify) {
+          await supabase.from('notifications').insert({
+            user_id: userId,
+            message: `¡Nuevo comentario en la tarea "${task.title}"!`,
+            type: 'info',
+          });
+        }
+      }
+
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const handleEditComment = (comment) => {
+    setEditingComment(comment);
+    setNewCommentText(comment.message);
+  };
+
+  const handleSaveEditedComment = async () => {
+    if (!newCommentText.trim() || !editingComment) return;
+    try {
+      const { error } = await supabase
+        .from('task_comments')
+        .update({ message: newCommentText.trim() })
+        .eq('id', editingComment.id);
+
+      if (error) throw error;
+      setSelectedTaskComments(prev => prev.map(comment =>
+        comment.id === editingComment.id ? { ...comment, message: newCommentText.trim() } : comment
+      ));
+      setEditingComment(null);
+      setNewCommentText('');
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const handleDeleteComment = async (commentId) => {
+    if (!window.confirm('¿Estás seguro de que quieres eliminar este comentario?')) return;
+    try {
+      const { error } = await supabase
+        .from('task_comments')
+        .delete()
+        .eq('id', commentId);
+
+      if (error) throw error;
+      setSelectedTaskComments(prev => prev.filter(comment => comment.id !== commentId));
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const canEditComment = (commentCreatedAt) => {
+    const commentTime = new Date(commentCreatedAt).getTime();
+    const fiveHours = 5 * 60 * 60 * 1000; // 5 hours in milliseconds
+    return (new Date().getTime() - commentTime) < fiveHours;
+  };
+
+
   if (loading) {
     return (
       <div className={`flex justify-center items-center min-h-[calc(100vh-80px)] ${theme === 'dark' ? 'bg-gray-900' : 'bg-red-50'}`}>
@@ -379,7 +515,7 @@ const Dashboard = ({ user, theme, toggleTheme }) => {
 
               {(user.role === 'admin' || user.role === 'leader') && (
                 <div className={`mt-4 pt-4 border-t flex flex-col gap-2 ${theme === 'dark' ? 'border-gray-700' : 'border-red-200'}`}>
-                  <p className={`font-semibold mb-2 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>Acciones de {user.role === 'admin' ? 'Admin' : 'Líder'}:</p>
+                  <p className={`font-semibold mb-2 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>Acciones de Tarea:</p>
                   {task.status === 'completed' && (
                     <motion.button
                       onClick={() => handleAdminAction(task.id, 'qc')}
@@ -415,10 +551,116 @@ const Dashboard = ({ user, theme, toggleTheme }) => {
                   )}
                 </div>
               )}
+              <motion.button
+                onClick={() => handleOpenComments(task.id)}
+                className={`mt-4 w-full px-4 py-2 rounded-lg shadow-md flex items-center justify-center gap-2 transition-colors duration-200 ${theme === 'dark' ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <MessageSquare className="w-5 h-5" />
+                Ver Comentarios
+              </motion.button>
             </motion.div>
           ))}
         </div>
       )}
+
+      <AnimatePresence>
+        {showCommentsModal && (
+          <motion.div
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className={`${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} rounded-3xl p-8 shadow-2xl w-full max-w-lg`}
+              initial={{ y: -50, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 50, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 100, damping: 15 }}
+            >
+              <h2 className={`text-2xl font-bold mb-6 text-center ${theme === 'dark' ? 'text-gray-100' : 'text-gray-800'}`}>Comentarios de la Tarea</h2>
+              <div className={`max-h-80 overflow-y-auto mb-4 p-3 rounded-lg ${theme === 'dark' ? 'bg-gray-700 border border-gray-600' : 'bg-gray-100 border border-gray-200'}`}>
+                {selectedTaskComments.length === 0 ? (
+                  <p className={`${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'} text-center`}>No hay comentarios aún. ¡Sé el primero!</p>
+                ) : (
+                  selectedTaskComments.map(comment => (
+                    <motion.div
+                      key={comment.id}
+                      className={`mb-3 p-3 rounded-lg ${theme === 'dark' ? 'bg-gray-600' : 'bg-white'} shadow-sm`}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, x: -10 }}
+                    >
+                      <div className="flex justify-between items-center mb-1">
+                        <span className={`font-semibold ${theme === 'dark' ? 'text-red-300' : 'text-red-600'}`}>{comment.user_id.username}</span>
+                        <span className={`text-xs ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>{comment.created_at}</span>
+                      </div>
+                      <p className={`${theme === 'dark' ? 'text-gray-200' : 'text-gray-700'}`}>{comment.message}</p>
+                      {(comment.user_id.id === user.id || user.role === 'admin' || user.role === 'leader') && (
+                        <div className="flex justify-end gap-2 mt-2">
+                          {comment.user_id.id === user.id && canEditComment(comment.created_at) && ( // Only author can edit within 5 hours
+                            <motion.button
+                              onClick={() => handleEditComment(comment)}
+                              className={`p-1 rounded-full ${theme === 'dark' ? 'text-gray-400 hover:text-gray-200 hover:bg-gray-700' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'}`}
+                              whileHover={{ scale: 1.1 }}
+                              whileTap={{ scale: 0.9 }}
+                            >
+                              <Edit className="w-4 h-4" />
+                            </motion.button>
+                          )}
+                          <motion.button
+                            onClick={() => handleDeleteComment(comment.id)}
+                            className={`p-1 rounded-full ${theme === 'dark' ? 'text-red-400 hover:text-red-200 hover:bg-gray-700' : 'text-red-500 hover:text-red-700 hover:bg-gray-100'}`}
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </motion.button>
+                        </div>
+                      )}
+                    </motion.div>
+                  ))
+                )}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newCommentText}
+                  onChange={(e) => setNewCommentText(e.target.value)}
+                  placeholder={editingComment ? "Edita tu comentario..." : "Escribe un nuevo comentario..."}
+                  className={`flex-grow px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300 text-gray-900'}`}
+                />
+                <motion.button
+                  onClick={editingComment ? handleSaveEditedComment : handleAddComment}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition-colors duration-200"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  {editingComment ? <Save className="w-5 h-5" /> : <Send className="w-5 h-5" />}
+                </motion.button>
+              </div>
+              <div className="flex justify-end mt-4">
+                <motion.button
+                  onClick={() => {
+                    setShowCommentsModal(false);
+                    setSelectedTaskComments([]);
+                    setNewCommentText('');
+                    setEditingComment(null);
+                    setCurrentTaskIdForComments(null);
+                  }}
+                  className={`${theme === 'dark' ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'} px-5 py-2 rounded-xl transition-colors duration-200`}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  Cerrar
+                </motion.button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
