@@ -1,108 +1,97 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LogOut, User, Briefcase, Clock, ListTodo, Bell, XCircle, Sun, Moon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import { fetchNotifications, createNotification } from '../services/notificationService';
+import {
+  getStatusColor,
+  getThemeClass,
+  getBgColor,
+  getCardColor,
+  getTableHeadColor,
+  getTableBodyColor,
+  getTextColor,
+  getInputColor,
+  getButtonColor
+} from '../utils/themeUtils';
 
 const Navbar = ({ user, onLogout, theme, toggleTheme }) => {
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
 
-  const fetchNotifications = async () => {
-    if (!user) return;
-    try {
-      const { data, error } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('read', false)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setNotifications(data);
-    } catch (err) {
-      console.error("Error fetching notifications:", err.message);
-    }
-  };
-
-  useEffect(() => {
+  const loadNotifications = useCallback(async () => {
     if (user) {
-      fetchNotifications();
-
-      const channel = supabase
-        .channel('public:tasks_notifications') // Unique channel name
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, payload => {
-          // Listen for new notifications inserted into the DB
-          if (payload.new.user_id === user.id && !payload.new.read) {
-            setNotifications(prev => [payload.new, ...prev]);
-          }
-        })
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tasks' }, async payload => {
-          // This listener is for generating notifications based on task changes
-          // It will then insert into the notifications table, which the INSERT listener above will catch.
-
-          // Fetch assigned_to_username for admin notifications
-          let assignedToUsername = '';
-          if (payload.new.assigned_to) {
-            const { data: assignedUser, error: userError } = await supabase
-              .from('users')
-              .select('username')
-              .eq('id', payload.new.assigned_to)
-              .single();
-            if (userError) console.error("Error fetching assigned user:", userError.message);
-            assignedToUsername = assignedUser ? assignedUser.username : 'un usuario';
-          }
-
-          // Notification for assigned user when task is assigned or needs correction
-          if (payload.new.assigned_to === user.id) {
-            if (payload.old.status !== 'correction' && payload.new.status === 'correction') {
-              await supabase.from('notifications').insert({
-                user_id: user.id,
-                message: `¡Tarea "${payload.new.title}" necesita corrección!`,
-                type: 'warning',
-              });
-            } else if (payload.old.assigned_to !== payload.new.assigned_to) {
-              await supabase.from('notifications').insert({
-                user_id: user.id,
-                message: `¡Se te ha asignado la tarea "${payload.new.title}"!`,
-                type: 'info',
-              });
-            }
-          }
-          // Notification for admins and leaders when a task is completed or corrected and completed
-          if (user.role === 'admin' || user.role === 'leader') {
-            if (payload.old.status !== 'completed' && payload.new.status === 'completed') {
-              await supabase.from('notifications').insert({
-                user_id: user.id, // Admin/Leader's ID
-                message: `¡Tarea "${payload.new.title}" ha sido marcada como TERMINADA por ${assignedToUsername}!`,
-                type: 'success',
-              });
-            } else if (payload.old.status === 'correction' && payload.new.status === 'completed') {
-              await supabase.from('notifications').insert({
-                user_id: user.id, // Admin/Leader's ID
-                message: `¡Tarea "${payload.new.title}" ha sido CORREGIDA y marcada como TERMINADA por ${assignedToUsername}!`,
-                type: 'success',
-              });
-            }
-          }
-        })
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(channel);
-      };
+      try {
+        const data = await fetchNotifications(user.id);
+        setNotifications(data);
+      } catch (err) {
+        console.error("Error loading notifications:", err.message);
+      }
     }
   }, [user]);
 
-  const clearNotification = async (id) => {
+  useEffect(() => {
+    loadNotifications();
+
+    const channel = supabase
+      .channel('public:tasks_notifications')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, payload => {
+        if (payload.new.user_id === user.id && !payload.new.read) {
+          setNotifications(prev => [payload.new, ...prev]);
+        }
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'notifications' }, payload => {
+        // Reload notifications when one is marked as read (by this user or others)
+        loadNotifications();
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tasks' }, async payload => {
+        let assignedToUsername = '';
+        if (payload.new.assigned_to) {
+          const { data: assignedUser, error: userError } = await supabase
+            .from('users')
+            .select('username')
+            .eq('id', payload.new.assigned_to)
+            .single();
+          if (userError) console.error("Error fetching assigned user:", userError.message);
+          assignedToUsername = assignedUser ? assignedUser.username : 'un usuario';
+        }
+
+        if (payload.new.assigned_to === user.id) {
+          if (payload.old.status !== 'correction' && payload.new.status === 'correction') {
+            await createNotification(user.id, `¡Tarea "${payload.new.title}" necesita corrección!`, 'warning');
+          } else if (payload.old.assigned_to !== payload.new.assigned_to) {
+            await createNotification(user.id, `¡Se te ha asignado la tarea "${payload.new.title}"!`, 'info');
+          }
+        }
+
+        if (user.role === 'admin' || user.role === 'leader') {
+          if (payload.old.status !== 'completed' && payload.new.status === 'completed') {
+            await createNotification(user.id, `¡Tarea "${payload.new.title}" ha sido marcada como TERMINADA por ${assignedToUsername}!`, 'success');
+          } else if (payload.old.status === 'correction' && payload.new.status === 'completed') {
+            await createNotification(user.id, `¡Tarea "${payload.new.title}" ha sido CORREGIDA y marcada como TERMINADA por ${assignedToUsername}!`, 'success');
+          }
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+
+  const markNotificationAsRead = async (notificationId) => {
     try {
-      const { error } = await supabase
+      // Mark as read first
+      const { error: updateError } = await supabase
         .from('notifications')
         .update({ read: true })
-        .eq('id', id);
+        .eq('id', notificationId);
 
-      if (error) throw error;
-      setNotifications(prev => prev.filter(notif => notif.id !== id));
+      if (updateError) throw updateError;
+
+      // Update local state
+      setNotifications(prev => prev.filter(notif => notif.id !== notificationId));
     } catch (err) {
       console.error("Error marking notification as read:", err.message);
     }
@@ -120,10 +109,7 @@ const Navbar = ({ user, onLogout, theme, toggleTheme }) => {
       if (fetchError) throw fetchError;
 
       for (const task of runningTasks) {
-        const currentTaskInState = notifications.find(t => t.id === task.id); // Find the task in current state
         let newTotalTimeSpent = task.total_time_spent || 0;
-
-        // If the task was actively being timed by the current user
         if (localStorage.getItem('activeTimer')) {
           const activeTimer = JSON.parse(localStorage.getItem('activeTimer'));
           if (activeTimer.taskId === task.id) {
@@ -163,15 +149,15 @@ const Navbar = ({ user, onLogout, theme, toggleTheme }) => {
         <div className="flex items-center gap-6">
           {user && user.role === 'admin' && (
             <>
-              <Link to="/users" className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} hover:text-red-400 transition-colors duration-200 flex items-center gap-1`}>
+              <Link to="/users" className={`${getTextColor(theme, 'secondary')} hover:text-red-400 transition-colors duration-200 flex items-center gap-1`}>
                 <User className="w-5 h-5" />
                 Usuarios
               </Link>
-              <Link to="/projects" className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} hover:text-red-400 transition-colors duration-200 flex items-center gap-1`}>
+              <Link to="/projects" className={`${getTextColor(theme, 'secondary')} hover:text-red-400 transition-colors duration-200 flex items-center gap-1`}>
                 <Briefcase className="w-5 h-5" />
                 Proyectos
               </Link>
-              <Link to="/tasks" className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} hover:text-red-400 transition-colors duration-200 flex items-center gap-1`}>
+              <Link to="/tasks" className={`${getTextColor(theme, 'secondary')} hover:text-red-400 transition-colors duration-200 flex items-center gap-1`}>
                 <ListTodo className="w-5 h-5" />
                 Tareas
               </Link>
@@ -179,7 +165,7 @@ const Navbar = ({ user, onLogout, theme, toggleTheme }) => {
           )}
           {user && user.role === 'leader' && (
             <>
-              <Link to="/tasks" className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} hover:text-red-400 transition-colors duration-200 flex items-center gap-1`}>
+              <Link to="/tasks" className={`${getTextColor(theme, 'secondary')} hover:text-red-400 transition-colors duration-200 flex items-center gap-1`}>
                 <ListTodo className="w-5 h-5" />
                 Tareas
               </Link>
@@ -189,11 +175,11 @@ const Navbar = ({ user, onLogout, theme, toggleTheme }) => {
           <div className="relative">
             <motion.button
               onClick={() => setShowNotifications(!showNotifications)}
-              className={`relative p-2 rounded-full ${theme === 'dark' ? 'bg-gray-700' : 'bg-red-200'} hover:${theme === 'dark' ? 'bg-gray-600' : 'bg-red-300'} transition-colors duration-200`}
+              className={`relative p-2 rounded-full ${getButtonColor(theme, 'secondary')} transition-colors duration-200`}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
-              <Bell className={`w-5 h-5 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`} />
+              <Bell className={`w-5 h-5 ${getTextColor(theme, 'secondary')}`} />
               {notifications.length > 0 && (
                 <span className="absolute top-0 right-0 block h-3 w-3 rounded-full ring-2 ring-gray-800 bg-red-500 text-white text-xs flex items-center justify-center">
                   {notifications.length}
@@ -208,11 +194,11 @@ const Navbar = ({ user, onLogout, theme, toggleTheme }) => {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.2 }}
-                  className={`absolute right-0 mt-2 w-80 ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-lg shadow-lg py-2 z-50 ${theme === 'dark' ? 'text-gray-200' : 'text-gray-800'}`}
+                  className={`${getCardColor(theme)} absolute right-0 mt-2 w-80 rounded-lg shadow-lg py-2 z-50 ${getTextColor(theme)}`}
                 >
-                  <h3 className="text-lg font-semibold text-red-400 px-4 mb-2">Notificaciones</h3>
+                  <h3 className={`${getTextColor(theme, 'accent')} text-lg font-semibold px-4 mb-2`}>Notificaciones</h3>
                   {notifications.length === 0 ? (
-                    <p className={`${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'} text-sm px-4 py-2`}>No hay notificaciones nuevas.</p>
+                    <p className={`${getTextColor(theme, 'tertiary')} text-sm px-4 py-2`}>No hay notificaciones nuevas.</p>
                   ) : (
                     <div className="max-h-60 overflow-y-auto">
                       {notifications.map(notif => (
@@ -225,8 +211,8 @@ const Navbar = ({ user, onLogout, theme, toggleTheme }) => {
                         >
                           <p className="text-sm flex-grow">{notif.message}</p>
                           <motion.button
-                            onClick={() => clearNotification(notif.id)}
-                            className={`${theme === 'dark' ? 'text-gray-400 hover:text-gray-200 hover:bg-gray-700' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'} p-1 rounded-full`}
+                            onClick={() => markNotificationAsRead(notif.id)}
+                            className={`${getTextColor(theme, 'tertiary')} hover:${getTextColor(theme, 'primary')} hover:${getButtonColor(theme, 'secondary')} p-1 rounded-full`}
                             whileHover={{ scale: 1.1 }}
                             whileTap={{ scale: 0.9 }}
                           >
@@ -243,14 +229,14 @@ const Navbar = ({ user, onLogout, theme, toggleTheme }) => {
 
           <motion.button
             onClick={toggleTheme}
-            className={`p-2 rounded-full ${theme === 'dark' ? 'bg-gray-700 text-gray-300' : 'bg-red-200 text-gray-700'} hover:${theme === 'dark' ? 'bg-gray-600' : 'bg-red-300'} transition-colors duration-200`}
+            className={`p-2 rounded-full ${getButtonColor(theme, 'secondary')} transition-colors duration-200`}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
           >
             {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
           </motion.button>
 
-          <span className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} font-medium hidden sm:block`}>
+          <span className={`${getTextColor(theme, 'secondary')} font-medium hidden sm:block`}>
             Hola, {user?.username || 'Invitado'} ({user?.role})
           </span>
           <motion.button

@@ -7,6 +7,7 @@ import UsersManagement from './pages/UsersManagement';
 import ProjectsManagement from './pages/ProjectsManagement';
 import TasksManagement from './pages/TasksManagement';
 import { supabase } from './supabaseClient';
+import { getBgColor } from './utils/themeUtils';
 
 const App = () => {
   const [user, setUser] = useState(null);
@@ -15,7 +16,7 @@ const App = () => {
 
   // Apply theme to body class
   useEffect(() => {
-    document.body.className = theme === 'dark' ? 'bg-gray-900 text-gray-100' : 'bg-red-50 text-gray-900';
+    document.body.className = getBgColor(theme);
   }, [theme]);
 
   const toggleTheme = () => {
@@ -53,10 +54,10 @@ const App = () => {
   return (
     <Router>
       {user ? (
-        <div className={`${theme === 'dark' ? 'bg-gray-900 text-gray-100' : 'bg-red-50 text-gray-900'} min-h-screen`}>
+        <div className={`${getBgColor(theme)} min-h-screen`}>
           <Navbar user={user} onLogout={handleLogout} theme={theme} toggleTheme={toggleTheme} />
           <Routes>
-            <Route path="/" element={<Dashboard user={user} theme={theme} toggleTheme={toggleTheme} />} />
+            <Route path="/" element={<Dashboard user={user} theme={theme} />} />
             {user.role === 'admin' && (
               <>
                 <Route path="/users" element={<UsersManagement theme={theme} />} />

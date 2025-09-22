@@ -2,6 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../supabaseClient';
 import { FolderPlus, Edit, Trash2, Save, X, Folder } from 'lucide-react';
+import { fetchProjects, addProject, updateProject, deleteProject } from '../services/projectService';
+import { fetchLeadersAndAdmins } from '../services/userService';
+import { getStatusColor, getThemeClass, getBgColor, getCardColor, getTableHeadColor, getTableBodyColor, getTextColor, getInputColor, getButtonColor } from '../utils/themeUtils';
+
 
 const ProjectsManagement = ({ user, theme }) => {
   const [projects, setProjects] = useState([]);
@@ -13,32 +17,17 @@ const ProjectsManagement = ({ user, theme }) => {
   const [editingProject, setEditingProject] = useState(null); // Project object being edited
 
   useEffect(() => {
-    fetchProjectsAndLeaders();
+    loadProjectsAndLeaders();
   }, []);
 
-  const fetchProjectsAndLeaders = async () => {
+  const loadProjectsAndLeaders = async () => {
     setLoading(true);
     setError('');
     try {
-      const { data: projectsData, error: projectsError } = await supabase
-        .from('projects')
-        .select(`
-          id, name, description, created_at,
-          created_by(username),
-          leader_id(username)
-        `)
-        .order('created_at', { ascending: false });
-
-      if (projectsError) throw projectsError;
+      const projectsData = await fetchProjects(user.id, user.role);
       setProjects(projectsData);
 
-      // Fetch users who are 'leader' or 'admin' to be assigned as project leaders
-      const { data: leadersData, error: leadersError } = await supabase
-        .from('users')
-        .select('id, username, role_id!inner(name)') // Corrected select syntax
-        .or('name.eq.leader,name.eq.admin', { foreignTable: 'role_id' }); // Corrected filter syntax
-
-      if (leadersError) throw leadersError;
+      const leadersData = await fetchLeadersAndAdmins();
       setLeaders(leadersData);
 
     } catch (err) {
@@ -52,22 +41,7 @@ const ProjectsManagement = ({ user, theme }) => {
     e.preventDefault();
     setError('');
     try {
-      const { data, error } = await supabase
-        .from('projects')
-        .insert({
-          name: newProject.name,
-          description: newProject.description,
-          created_by: user.id,
-          leader_id: newProject.leader_id, // Assign leader
-        })
-        .select(`
-          id, name, description, created_at,
-          created_by(username),
-          leader_id(username)
-        `)
-        .single();
-
-      if (error) throw error;
+      const data = await addProject({ ...newProject, created_by: user.id });
       setProjects((prev) => [data, ...prev]);
       setNewProject({ name: '', description: '', leader_id: '' });
       setShowAddProjectModal(false);
@@ -82,16 +56,7 @@ const ProjectsManagement = ({ user, theme }) => {
     if (!editingProject) return;
 
     try {
-      const { error } = await supabase
-        .from('projects')
-        .update({
-          name: editingProject.name,
-          description: editingProject.description,
-          leader_id: editingProject.leader_id,
-        })
-        .eq('id', editingProject.id);
-
-      if (error) throw error;
+      await updateProject(editingProject);
       // Update the project in state with the new leader's username
       const updatedLeader = leaders.find(l => l.id === editingProject.leader_id);
       setProjects((prev) =>
@@ -111,12 +76,7 @@ const ProjectsManagement = ({ user, theme }) => {
     if (!window.confirm('¿Estás seguro de que quieres eliminar este proyecto? ¡Esto también eliminará todas las tareas asociadas!')) return;
     setError('');
     try {
-      const { error } = await supabase
-        .from('projects')
-        .delete()
-        .eq('id', projectId);
-
-      if (error) throw error;
+      await deleteProject(projectId);
       setProjects((prev) => prev.filter((project) => project.id !== projectId));
     } catch (err) {
       setError(err.message);
@@ -125,16 +85,16 @@ const ProjectsManagement = ({ user, theme }) => {
 
   if (loading) {
     return (
-      <div className={`flex justify-center items-center min-h-[calc(100vh-80px)] ${theme === 'dark' ? 'bg-gray-900' : 'bg-red-50'}`}>
-        <p className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'} text-lg`}>Cargando proyectos, ¡la burocracia es lenta!</p>
+      <div className={`flex justify-center items-center min-h-[calc(100vh-80px)] ${getBgColor(theme)}`}>
+        <p className={`${getTextColor(theme, 'secondary')} text-lg`}>Cargando proyectos, ¡la burocracia es lenta!</p>
       </div>
     );
   }
 
   return (
-    <div className={`container mx-auto px-4 py-8 ${theme === 'dark' ? 'bg-gray-900 text-gray-100' : 'bg-red-50 text-gray-900'}`}>
+    <div className={`container mx-auto px-4 py-8 ${getBgColor(theme)}`}>
       <motion.h1
-        className={`text-4xl font-extrabold mb-8 text-center ${theme === 'dark' ? 'text-red-400' : 'text-red-700'}`}
+        className={`text-4xl font-extrabold mb-8 text-center ${getTextColor(theme, 'title')}`}
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.6 }}
@@ -165,34 +125,34 @@ const ProjectsManagement = ({ user, theme }) => {
         </motion.p>
       )}
 
-      <div className={`${theme === 'dark' ? 'bg-gray-800/90 border-gray-700/50' : 'bg-white/90 border-red-200/50'} backdrop-blur-xl border rounded-3xl p-6 shadow-xl`}>
+      <div className={`${getCardColor(theme)} backdrop-blur-xl border rounded-3xl p-6 shadow-xl`}>
         {projects.length === 0 ? (
-          <p className={`text-center py-8 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>No hay proyectos registrados. ¡A trabajar!</p>
+          <p className={`text-center py-8 ${getTextColor(theme, 'tertiary')}`}>No hay proyectos registrados. ¡A trabajar!</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
-              <thead className={`${theme === 'dark' ? 'bg-gray-700' : 'bg-gray-50'}`}>
+              <thead className={`${getTableHeadColor(theme)}`}>
                 <tr>
-                  <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${theme === 'dark' ? 'text-gray-300' : 'text-gray-500'}`}>
+                  <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${getTextColor(theme, 'secondary')}`}>
                     Nombre del Proyecto
                   </th>
-                  <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${theme === 'dark' ? 'text-gray-300' : 'text-gray-500'}`}>
+                  <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${getTextColor(theme, 'secondary')}`}>
                     Descripción
                   </th>
-                  <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${theme === 'dark' ? 'text-gray-300' : 'text-gray-500'}`}>
+                  <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${getTextColor(theme, 'secondary')}`}>
                     Líder
                   </th>
-                  <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${theme === 'dark' ? 'text-gray-300' : 'text-gray-500'}`}>
+                  <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${getTextColor(theme, 'secondary')}`}>
                     Creado por
                   </th>
                   {user.role === 'admin' && (
-                    <th className={`px-6 py-3 text-right text-xs font-medium uppercase tracking-wider ${theme === 'dark' ? 'text-gray-300' : 'text-gray-500'}`}>
+                    <th className={`px-6 py-3 text-right text-xs font-medium uppercase tracking-wider ${getTextColor(theme, 'secondary')}`}>
                       Acciones
                     </th>
                   )}
                 </tr>
               </thead>
-              <tbody className={`${theme === 'dark' ? 'bg-gray-800 divide-gray-700' : 'bg-white divide-gray-200'} divide-y`}>
+              <tbody className={`${getTableBodyColor(theme)} divide-y`}>
                 <AnimatePresence>
                   {projects.map((project) => (
                     <motion.tr
@@ -208,12 +168,12 @@ const ProjectsManagement = ({ user, theme }) => {
                             type="text"
                             value={editingProject.name}
                             onChange={(e) => setEditingProject({ ...editingProject, name: e.target.value })}
-                            className={`border rounded-md px-2 py-1 w-full ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300 text-gray-900'}`}
+                            className={`border rounded-md px-2 py-1 w-full ${getInputColor(theme)}`}
                           />
                         ) : (
                           <div className="flex items-center gap-2">
-                            <Folder className={`w-4 h-4 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`} />
-                            <span className={`font-medium ${theme === 'dark' ? 'text-gray-100' : 'text-gray-900'}`}>{project.name}</span>
+                            <Folder className={`w-4 h-4 ${getTextColor(theme, 'tertiary')}`} />
+                            <span className={`font-medium ${getTextColor(theme, 'primary')}`}>{project.name}</span>
                           </div>
                         )}
                       </td>
@@ -222,10 +182,10 @@ const ProjectsManagement = ({ user, theme }) => {
                           <textarea
                             value={editingProject.description}
                             onChange={(e) => setEditingProject({ ...editingProject, description: e.target.value })}
-                            className={`border rounded-md px-2 py-1 w-full h-20 resize-y ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300 text-gray-900'}`}
+                            className={`border rounded-md px-2 py-1 w-full h-20 resize-y ${getInputColor(theme)}`}
                           />
                         ) : (
-                          <p className={`text-sm line-clamp-2 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>{project.description}</p>
+                          <p className={`text-sm line-clamp-2 ${getTextColor(theme, 'secondary')}`}>{project.description}</p>
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -233,19 +193,19 @@ const ProjectsManagement = ({ user, theme }) => {
                           <select
                             value={editingProject.leader_id}
                             onChange={(e) => setEditingProject({ ...editingProject, leader_id: e.target.value })}
-                            className={`border rounded-md px-2 py-1 w-full ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300 text-gray-900'}`}
+                            className={`border rounded-md px-2 py-1 w-full ${getInputColor(theme)}`}
                           >
-                            <option value="">Sin Líder</option>
+                            <option value="">Selecciona un Líder</option>
                             {leaders.map(leader => (
                               <option key={leader.id} value={leader.id}>{leader.username}</option>
                             ))}
                           </select>
                         ) : (
-                          <span className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>{project.leader_id?.username || 'N/A'}</span>
+                          <span className={`${getTextColor(theme, 'secondary')}`}>{project.leader_id?.username || 'N/A'}</span>
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>{project.created_by.username}</span>
+                        <span className={`${getTextColor(theme, 'secondary')}`}>{project.created_by.username}</span>
                       </td>
                       {user.role === 'admin' && (
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -308,16 +268,16 @@ const ProjectsManagement = ({ user, theme }) => {
             exit={{ opacity: 0 }}
           >
             <motion.div
-              className={`${theme === 'dark' ? 'bg-gray-800' : 'bg-white'} rounded-3xl p-8 shadow-2xl w-full max-w-md`}
+              className={`${getCardColor(theme)} rounded-3xl p-8 shadow-2xl w-full max-w-md`}
               initial={{ y: -50, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 50, opacity: 0 }}
               transition={{ type: "spring", stiffness: 100, damping: 15 }}
             >
-              <h2 className={`text-2xl font-bold mb-6 text-center ${theme === 'dark' ? 'text-gray-100' : 'text-gray-800'}`}>Crear Nuevo Proyecto</h2>
+              <h2 className={`text-2xl font-bold mb-6 text-center ${getTextColor(theme, 'primary')}`}>Crear Nuevo Proyecto</h2>
               <form onSubmit={handleAddProject} className="space-y-4">
                 <div>
-                  <label htmlFor="newProjectName" className={`block text-sm font-medium mb-2 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
+                  <label htmlFor="newProjectName" className={`block text-sm font-medium mb-2 ${getTextColor(theme, 'secondary')}`}>
                     Nombre del Proyecto
                   </label>
                   <input
@@ -325,30 +285,30 @@ const ProjectsManagement = ({ user, theme }) => {
                     id="newProjectName"
                     value={newProject.name}
                     onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
-                    className={`w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300 text-gray-900'}`}
+                    className={`w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${getInputColor(theme)}`}
                     required
                   />
                 </div>
                 <div>
-                  <label htmlFor="newProjectDescription" className={`block text-sm font-medium mb-2 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
+                  <label htmlFor="newProjectDescription" className={`block text-sm font-medium mb-2 ${getTextColor(theme, 'secondary')}`}>
                     Descripción
                   </label>
                   <textarea
                     id="newProjectDescription"
                     value={newProject.description}
                     onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
-                    className={`w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 h-24 resize-y ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300 text-gray-900'}`}
+                    className={`w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 h-24 resize-y ${getInputColor(theme)}`}
                   />
                 </div>
                 <div>
-                  <label htmlFor="newProjectLeader" className={`block text-sm font-medium mb-2 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
+                  <label htmlFor="newProjectLeader" className={`block text-sm font-medium mb-2 ${getTextColor(theme, 'secondary')}`}>
                     Líder del Proyecto
                   </label>
                   <select
                     id="newProjectLeader"
                     value={newProject.leader_id}
                     onChange={(e) => setNewProject({ ...newProject, leader_id: e.target.value })}
-                    className={`w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-300 text-gray-900'}`}
+                    className={`w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${getInputColor(theme)}`}
                   >
                     <option value="">Selecciona un Líder</option>
                     {leaders.map(leader => (
@@ -361,7 +321,7 @@ const ProjectsManagement = ({ user, theme }) => {
                   <motion.button
                     type="button"
                     onClick={() => setShowAddProjectModal(false)}
-                    className={`${theme === 'dark' ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'} px-5 py-2 rounded-xl transition-colors duration-200`}
+                    className={`${getButtonColor(theme, 'secondary')} px-5 py-2 rounded-xl transition-colors duration-200`}
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                   >
